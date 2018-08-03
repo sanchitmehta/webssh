@@ -123,7 +123,7 @@ var handleConnectionDisconnect = function () {
     }
     if (!refreshTimer && (siteStatus === "RUNNING")) {
         document.getElementById('status').style.backgroundColor = 'red';
-        document.getElementById('status').innerHTML = 'SSH CONNECTION DISCONNECTED.ATTEMPTING TO RECONNECT';
+        document.getElementById('status').innerHTML = 'SSH CONNECTION DISCONNECTED. ATTEMPTING TO RECONNECT';
         refreshTimer = true;
         setTimeout(function () {
             checkAvailability('https://' + window.location.hostname.replace('.scm', ''), 100000, false);
@@ -181,4 +181,4 @@ socket.on('connect', function () {
             document.getElementById('status').innerHTML = 'ERROR ' + err;
         }
     });
-})
+});
