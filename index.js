@@ -1,14 +1,15 @@
 /*
  * WebSSH2 - Web to SSH2 gateway
  * Bill Church - https://github.com/billchurch - April 2016
- * 
- */ 
-
+ *
+ */
 var express = require('express');
 var app = express();
-var cookieParser = require('cookie-parser')
+var cookieParser = require('cookie-parser');
 var server = require('http').Server(app);
-var io = require('socket.io')(server, {path: '/webssh/socket.io'});
+var io = require('socket.io')(server, {
+    path: '/webssh/socket.io'
+});
 var path = require('path');
 var fs = require('fs');
 
@@ -17,10 +18,11 @@ var ssh = require('ssh2');
 var readConfig = require('read-config'),
     config = readConfig(__dirname + '/config.json');
 var myError = " - ";
+var serverStatusFile = "/appsvctmp/status.txt";
 
 function logErrors(err, req, res, next) {
-  console.error(err.stack);
-  next(err);
+    console.error(err.stack);
+    next(err);
 }
 
 server.listen({
@@ -47,45 +49,46 @@ app.use(express.static(__dirname + '/webssh/public')).use(function(req, res, nex
         res.setHeader('WWW-Authenticate', 'Basic realm="WebSSH"');
         res.end('Username and password required for web SSH service.');
     } else {*/
-        config.user.name = 'root';
-        config.user.password = 'Docker!';
-	config.ssh.port = 2222;
-	fs.readFile('/appsvctmp/ipaddr_' + process.env.WEBSITE_ROLE_INSTANCE_ID, 'utf8', function(err, data) {
-      if(err)
-      {
-          fs.readFile('/home/site/ipaddr_' + process.env.WEBSITE_ROLE_INSTANCE_ID, 'utf8', function(err, data) {
-              if(err)
-              {
-                config.ssh.host = 'Couldnt connect to main site container';
-              }
-              else
-              {
-                config.ssh.host = data;
-                console.log('Host from file: ' + config.ssh.host);
-              }
-          });
-      }
-      else
-      {
-        config.ssh.host = data;
-        console.log('Host from file: ' + config.ssh.host);
-      }
-	});
+    config.user.name = 'root';
+    config.user.password = 'Docker!';
+    config.ssh.port = 2222;
+    fs.readFile('/appsvctmp/ipaddr_' + process.env.WEBSITE_ROLE_INSTANCE_ID, 'utf8', function (err, data) {
+        if (err) {
+            fs.readFile('/home/site/ipaddr_' + process.env.WEBSITE_ROLE_INSTANCE_ID, 'utf8', function (err, data) {
+                if (err) {
+                    config.ssh.host = 'Couldnt connect to main site container';
+                } else {
+                    config.ssh.host = data;
+                    console.log('Host from file: ' + config.ssh.host);
+                }
+            });
+        } else {
+            config.ssh.host = data;
+            console.log('Host from file: ' + config.ssh.host);
+        }
+    });
 
-        next();
+    next();
     //}
-}).use(cookieParser()).get('/webssh/host/:host?', function(req, res) {
+}).use('/webssh/socket.io', express.static(__dirname + '/node_modules/socket.io-client/dist')).use('/webssh/client.js', express.static(__dirname + '/public/client.js')).use('/webssh/style', express.static(__dirname + '/public')).use('/webssh/src', express.static(__dirname + '/node_modules/xterm/dist')).use('/webssh/addons', express.static(__dirname + '/node_modules/xterm/dist/addons'))
+    .use(cookieParser()).get('/webssh/host/:host?', function (req, res) {
     res.sendFile(path.join(__dirname + '/public/client.htm'));
     config.ssh.host = req.params.host;
     console.log('Host: ' + config.ssh.host);
-    if (typeof req.query.port !== 'undefined' && req.query.port !== null){ config.ssh.port = req.query.port;}
-    if (typeof req.query.header !== 'undefined' && req.query.header !== null){ config.header.text = req.query.header;}
-    if (typeof req.query.headerBackground !== 'undefined' && req.query.headerBackground !== null){ config.header.background = req.query.headerBackground;}
-    console.log ('webssh2 Login: user=' + config.user.name + ' from=' + req.ip + ' host=' + config.ssh.host + ' port=' + config.ssh.port + ' sessionID=' + req.headers['sessionid'] + ' allowreplay=' + req.headers['allowreplay']);
-    console.log ('Headers: ' + JSON.stringify(req.headers));
+    if (typeof req.query.port !== 'undefined' && req.query.port !== null) {
+        config.ssh.port = req.query.port;
+    }
+    if (typeof req.query.header !== 'undefined' && req.query.header !== null) {
+        config.header.text = req.query.header;
+    }
+    if (typeof req.query.headerBackground !== 'undefined' && req.query.headerBackground !== null) {
+        config.header.background = req.query.headerBackground;
+    }
+    console.log('webssh2 Login: user=' + config.user.name + ' from=' + req.ip + ' host=' + config.ssh.host + ' port=' + config.ssh.port + ' sessionID=' + req.headers['sessionid'] + ' allowreplay=' + req.headers['allowreplay']);
+    console.log('Headers: ' + JSON.stringify(req.headers));
     config.options.allowreplay = req.headers['allowreplay'];
 
-}).use('/webssh/socket.io', express.static(__dirname + '/node_modules/socket.io-client/dist')).use('/webssh/client.js', express.static(__dirname + '/public/client.js')).use('/webssh/style',express.static(__dirname + '/public')).use('/webssh/src',express.static(__dirname + '/node_modules/xterm/dist')).use('/webssh/addons',express.static(__dirname + '/node_modules/xterm/dist/addons'));
+});
 
 io.on('connection', function(socket) {
     var conn = new ssh();
@@ -102,8 +105,8 @@ io.on('connection', function(socket) {
         socket.emit('statusBackground', 'green');
         socket.emit('allowreplay', config.options.allowreplay)
         conn.shell(function(err, stream) {
-            if (err) { 
-                console.log (err.message);
+            if (err) {
+                console.log(err.message);
                 myError = myError + err.message
                 return socket.emit('status', 'SSH EXEC ERROR: ' + err.message).emit('statusBackground', 'red');
             }
@@ -111,11 +114,11 @@ io.on('connection', function(socket) {
                 stream.write(data);
             });
             socket.on('control', function(controlData) {
-                switch(controlData) {
+                switch (controlData) {
                     case 'replayCredentials':
                         stream.write(config.user.password + '\n');
                     default:
-                        console.log ('controlData: '+ controlData);
+                        console.log('controlData: ' + controlData);
                 };
             });
             stream.on('data', function(d) {
@@ -147,10 +150,43 @@ io.on('connection', function(socket) {
         username: config.user.name,
         password: config.user.password,
         tryKeyboard: true,
-// some cisco routers need the these cipher strings
+        // some cisco routers need the these cipher strings
         algorithms: {
             'cipher': ['aes128-cbc', '3des-cbc', 'aes256-cbc', 'aes128-ctr', 'aes256-ctr', 'aes192-ctr'],
             'hmac': ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5-96']
         }
     });
+});
+
+// Monitors change in the server status file to refresh/reload WebSsh on client
+io.sockets.on('connection', function (socket) {
+    fs.watchFile(serverStatusFile, {
+        persistent: true,
+        interval: 1000
+    }, function (data) {
+        fs.readFile(serverStatusFile, 'utf8', function (err, fileData) {
+            if (err) {
+                console.log('Status_WatchFile :: Error ' + err);
+                //pass
+            } else {
+                socket.emit('server', {
+                    message: fileData
+                });
+            }
+        });
+    });
+
+    // Continually check if the Server Status file exists
+    var checkStatusFileContents = function () {
+        fs.access(serverStatusFile, (err) => {
+            if(err) {
+                socket.emit('server', {
+                    message: 'LSiteNotStarted'
+                });
+            } else {
+                setTimeout(checkStatusFileContents,1000);
+    }
+    });
+    }
+    checkStatusFileContents();
 });
